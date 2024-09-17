@@ -1,0 +1,17 @@
+
+<!-- saved from url=(0099)https://us-freshconnect-prod.s3.amazonaws.com/thirdPartyFile/third-party-cookie-check-samesite.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252"><script>
+    var COOKIE_VAL = "thirdpartycookieenabled=yes; SameSite=None; Secure";
+    document.cookie = COOKIE_VAL;
+    if (window.parent) {
+      var isThirdPartyCookieEnabled = /thirdpartycookieenabled=yes/.test(
+        document.cookie
+      );
+      window.parent.postMessage(
+        { type: "third_party_cookie_check", isThirdPartyCookieEnabled },
+        "*"
+      );
+    }
+  </script>
+</head><body>
+</body></html>

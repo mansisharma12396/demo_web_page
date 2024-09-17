@@ -1,0 +1,11 @@
+/* Polyfill service v3.111.0
+ * For detailed credits and licence information see https://github.com/financial-times/polyfill-service.
+ * 
+ * Features requested: CustomEvent,Element.prototype.append,Element.prototype.classList,Element.prototype.closest,Element.prototype.matches,Element.prototype.remove,es5,es6,fetch,smoothscroll
+ *  */
+
+
+/* No polyfills needed for current settings and browser */
+
+
+typeof polyfillLoadCompleteCallbackFreshconnect==='function' && polyfillLoadCompleteCallbackFreshconnect();

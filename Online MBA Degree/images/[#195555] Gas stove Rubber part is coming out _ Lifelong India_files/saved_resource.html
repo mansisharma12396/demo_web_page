@@ -1,0 +1,43 @@
+
+<!-- saved from url=(0064)https://lifelongindia-org.myfreshworks.com/sessionCheckerIFrame/ -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252"><title>Session Checker</title>
+  
+    <script type="text/javascript">
+      window.TPS_CONFIG = {
+        SENTRY_DNS: 'https://047e2b5064bb4d37b424eca1bde09eca@sentry.io/1478397'
+      };
+    </script>
+    <script src="./polyfill.js.download"></script>
+    <!-- Following Postmate reference is a snapshot of https://github.com/dollarshaveclub/postmate/blob/master/build/postmate.min.js v1.5.0 -->
+    <script src="./postmate.min.js.download"></script>
+    <script src="./index.js.download"></script>
+  </head>
+  <body>
+<script>
+    window.onSentryLoad = () => {
+      /** 
+       * Add errors to ignore in the array
+       * below. It accepts 'strings' and 'regex'
+      */
+      var SENTRY_ERRORS_TO_IGNORE = [
+        // These errors are caused due to an unhandled rejection in
+        // Session Checker. Since we couldn't identify the root cause
+        // and it does not affect user's experience we are choosing to
+        // ignore it. Also it is observed only for few tens of users.
+        /"CustomEvent"/i,
+        /stopBlockQuote is not defined/i,
+        /jQuery is not defined/i,
+        /Non-Error promise rejection captured with keys: isTrusted/i
+      ]
+      if(window.Sentry) {
+        window.Sentry.init && window.Sentry.init({
+          dsn: window.TPS_CONFIG.SENTRY_DNS,
+          ignoreErrors: SENTRY_ERRORS_TO_IGNORE,
+        });
+        window.Sentry.configureScope && window.Sentry.configureScope(function (scope) {
+          scope.setTag('Context', 'Session Checker');
+        });
+      }
+      window.onSentryInit && window.onSentryInit();
+    };
+  </script><script src="./bundle.min.js.download" crossorigin="anonymous"></script></body></html>

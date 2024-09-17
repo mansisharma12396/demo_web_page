@@ -1,0 +1,403 @@
+Array.prototype.unique = function() {
+    var currentArray = this.concat();
+    for (var firstLevel = 0; firstLevel < currentArray.length; ++firstLevel) {
+        for (
+            var secondLevel = firstLevel + 1; secondLevel < currentArray.length;
+            ++secondLevel
+        ) {
+            if (currentArray[firstLevel] === currentArray[secondLevel]) {
+                currentArray.splice(secondLevel--, 1);
+            }
+        }
+    }
+    return currentArray;
+};
+String.prototype.replaceAll = function(search, replacement) {
+    var target = this;
+    return target.replace(new RegExp(search, "g"), replacement);
+};
+
+function getLableFromMap(mappinglist) {
+    let fieldLableMap = {};
+    Object.keys(mappinglist).forEach(function(singleKey) {
+        mappinglist[singleKey]["fieldmapping"].forEach(function(singleOption) {
+            let label = singleOption.label.split(",");
+            singleOption.field.split(",").forEach(function(singleKey, singleIndex) {
+                fieldLableMap[singleKey] = label[singleIndex];
+            });
+        });
+    });
+    return fieldLableMap;
+}
+
+function getLableFromReplyMap(replyFields, replyLables) {
+    let fieldLableMap = [];
+    let label = replyLables.split(",");
+    replyFields.split(",").forEach(function(singleKey, singleIndex) {
+        fieldLableMap[singleKey] = label[singleIndex];
+    });
+    return fieldLableMap;
+}
+
+function getFieldLableMap(iparams) {
+    let fieldLableMap = {};
+    if (iparams.mappinglist) {
+        let mapList = getLableFromMap(iparams.mappinglist);
+        fieldLableMap = Object.assign({}, fieldLableMap, mapList);
+    }
+    if (iparams.nestedmappinglist) {
+        let nestmapList = getLableFromMap(iparams.nestedmappinglist);
+        fieldLableMap = Object.assign({}, fieldLableMap, nestmapList);
+    }
+    if (iparams.replyfield && iparams.replyfield !== "") {
+        let replyMap = getLableFromReplyMap(iparams.replyfield, iparams.replylabel);
+        fieldLableMap = Object.assign({}, fieldLableMap, replyMap);
+    }
+    return fieldLableMap;
+}
+
+function appInitialize(_client) {
+    window.client = _client;
+    var iparams = {};
+    var ticketID = 0;
+    var fieldLableMaping = [];
+    var pageType = $("#hdnpage").val();
+
+    function onShowError(error, message) {
+        if (message && message !== "" && typeof message === "string") {
+            client.interface.trigger("showNotify", {
+                type: "danger",
+                message: message,
+            });
+        }
+        console.error(error);
+    }
+
+    function restrictEvent(event, message) {
+        event.helper.fail(message);
+    }
+
+    function allowEvent(event) {
+        event.helper.done();
+    }
+
+    function checkValueExists(basedon, ticketDetail) {
+        if (basedon === "ticket_type") {
+            basedon = "type";
+        } else if (basedon === "product") {
+            basedon = "product_id";
+        } else if (basedon === "group") {
+            basedon = "group_id";
+        } else if (basedon === "agent") {
+            basedon = "responder_id";
+        }
+        return isEmpty(ticketDetail[basedon]) ?
+            ticketDetail["custom_fields"][basedon] :
+            ticketDetail[basedon];
+    }
+
+    function isEmpty(currentValue) {
+        return (
+            currentValue === null ||
+            currentValue === undefined ||
+            currentValue === "" ||
+            currentValue === 0 ||
+            (typeof currentValue === "object" && $.isEmptyObject(currentValue))
+        );
+    }
+
+    function getListOfMandatory(
+        basedonvals,
+        fieldmapping,
+        ticketDetail,
+        event,
+        message,
+        isEventBase
+    ) {
+        var manadatoryList = [];
+        var isValid = true;
+        var emptyFieldsList = [];
+        if (basedonvals || isEventBase) {
+            if (isEventBase) {
+                manadatoryList = manadatoryList.concat(
+                    fieldmapping[0]["field"].split(",")
+                );
+            } else {
+                $.each(fieldmapping, function(index, value) {
+                    if (
+                        $.inArray(basedonvals.toString(), value.option.split(",")) !== -1
+                    ) {
+                        if (event && event.type && event.type === "ticket.sendReply") {
+                            if (value["onReply"] && String(value["onReply"]) === "true") {
+                                manadatoryList = manadatoryList.concat(value.field.split(","));
+                            }
+                        } else {
+                            manadatoryList = manadatoryList.concat(value.field.split(","));
+                        }
+                    }
+                });
+            }
+            manadatoryList = manadatoryList.unique();
+            $.each(manadatoryList, function(singleFieldIndex, singleField) {
+                var fieldValue = checkValueExists(singleField, ticketDetail);
+                if (
+                    isEmpty(fieldValue) ||
+                    fieldValue === false ||
+                    (Array.isArray(fieldValue) && fieldValue.length === 0)
+                ) {
+                    var fieldName = fieldLableMaping[singleField];
+                    isValid = false;
+                    emptyFieldsList.push(fieldName);
+                }
+            });
+            if (isValid === false && emptyFieldsList) {
+                message = message ?
+                    message.replaceAll("{{field}}", emptyFieldsList.toString()) :
+                    "Fill mandatory field  - " + emptyFieldsList.toString();
+                restrictEvent(event, message);
+            }
+        }
+        return isValid;
+    }
+
+    function validateNestedValCheck(listOfOption, ticketDetails) {
+        var returnValue = Object.keys(listOfOption).every(function(singleOption) {
+            if (listOfOption[singleOption] !== "") {
+                return (
+                    listOfOption[singleOption] ===
+                    ticketDetails["custom_fields"][singleOption]
+                );
+            } else {
+                return true;
+            }
+        });
+        return returnValue;
+    }
+
+    function getListOfNestMandatory(
+        basedonvals,
+        fieldmapping,
+        ticketDetail,
+        event,
+        message
+    ) {
+        var manadatoryList = [];
+        var isValid = true;
+        var emptyFieldsList = [];
+        if (basedonvals) {
+            $.each(fieldmapping, function(index, value) {
+                var allNestFieldhasval = validateNestedValCheck(
+                    value.option,
+                    ticketDetail
+                );
+                if (allNestFieldhasval === true) {
+                    if (event && event.type && event.type === "ticket.sendReply") {
+                        if (value["onReply"] && String(value["onReply"]) === "true") {
+                            manadatoryList = manadatoryList.concat(value.field.split(","));
+                        }
+                    } else {
+                        manadatoryList = manadatoryList.concat(value.field.split(","));
+                    }
+                }
+            });
+            manadatoryList = manadatoryList.unique();
+            $.each(manadatoryList, function(singleFieldIndex, singleField) {
+                var fieldValue = checkValueExists(singleField, ticketDetail);
+                if (
+                    isEmpty(fieldValue) ||
+                    (Array.isArray(fieldValue) && fieldValue.length === 0)
+                ) {
+                    var fieldName = fieldLableMaping[singleField];
+                    isValid = false;
+                    emptyFieldsList.push(fieldName);
+                }
+            });
+            if (isValid === false && emptyFieldsList) {
+                message = message ?
+                    message.replaceAll("{{field}}", emptyFieldsList.toString()) :
+                    "Fill mandatory field  - " + emptyFieldsList.toString();
+                console.log("called error method");
+                restrictEvent(event, message);
+            }
+        }
+        return isValid;
+    }
+
+    function onTicketDataSuccess(ticketDetail, event) {
+        var isValid = true;
+        if (!$.isEmptyObject(iparams["mappinglist"])) {
+            $.each(iparams["mappinglist"], function(basedon, maplist) {
+                var basedonvals = checkValueExists(basedon, ticketDetail);
+                basedonvals =
+                    basedonvals === false ? basedonvals.toString() : basedonvals;
+                isValid = getListOfMandatory(
+                    basedonvals,
+                    maplist.fieldmapping,
+                    ticketDetail,
+                    event,
+                    maplist.message,
+                    false
+                );
+                return isValid;
+            });
+        }
+        if (!$.isEmptyObject(iparams["nestedmappinglist"]) && isValid === true) {
+            $.each(iparams["nestedmappinglist"], function(basedon, maplist) {
+                var basedonvals = checkValueExists(basedon, ticketDetail);
+                isValid = getListOfNestMandatory(
+                    basedonvals,
+                    maplist.fieldmapping,
+                    ticketDetail,
+                    event,
+                    maplist.message
+                );
+                return isValid;
+            });
+        }
+        if (isValid === true) {
+            allowEvent(event);
+        }
+    }
+
+    function initCheckMandatory(event) {
+        if (pageType === "new_ticket") {
+            onTicketDataSuccess(event.data.ticket, event);
+        } else if (pageType === "email_ticket") {
+            onTicketDataSuccess(event.data, event);
+        } else {
+            client.data.get("ticket").then(
+                function(ticketData) {
+                    if ((event.data && event.data.changedAttributes) && ("email" in event.data.changedAttributes)) {
+                        allowEvent(event);
+                    } else {
+                        onTicketDataSuccess(ticketData.ticket, event);
+                    }
+                },
+                function(error) {
+                    onShowError(error, "Unable to get the ticket data");
+                    allowEvent(event);
+                }
+            );
+        }
+    }
+
+    function setTicketID() {
+        if (pageType === "ticket") {
+            client.data.get("ticket").then(
+                function(ticketData) {
+                    ticketID = ticketData.ticket["id"];
+                },
+                function(error) {
+                    onShowError(error, "Unable to get the ticket data");
+                }
+            );
+        }
+    }
+
+    function getTicketDetail(onSuccess, onError) {
+        if (ticketID && String(ticketID) !== 0) {
+            var headers = { Authorization: "Basic <%= encode(iparam.FDkey) %>" };
+            var options = { headers: headers };
+            var url = `${iparams.FDurl}/api/v2/tickets/${ticketID}.json`;
+            client.request.get(url, options).then(onSuccess, onError);
+        } else {
+            onError({ message: "Unable to get ticket id" });
+        }
+    }
+
+    function replyEvent(event) {
+        var isValid = true;
+        getTicketDetail(
+            function(ticketData) {
+                var ticketDetail = JSON.parse(ticketData["response"]);
+                if (iparams.onreply === 1 && iparams.replyfield !== "") {
+                    isValid = getListOfMandatory(
+                        "ticket.sendReply", [{ field: iparams.replyfield }],
+                        ticketDetail,
+                        event,
+                        undefined,
+                        true
+                    );
+                }
+                if (isValid === true) {
+                    onTicketDataSuccess(ticketDetail, event);
+                }
+            },
+            function(error) {
+                console.log(error);
+                allowEvent(event);
+            }
+        );
+    }
+
+    function checkOnReplyMapped(singleFields) {
+        return this[singleFields].fieldmapping.filter(function(singleMap) {
+            return singleMap["onReply"] && String(singleMap["onReply"]) === "true";
+        });
+    }
+
+    function getDropDownMappingList(mappinglist) {
+        return mappinglist ?
+            Object.keys(mappinglist).filter(checkOnReplyMapped, mappinglist) : [];
+    }
+
+    function getNestedDropDownList(nestedmappinglist) {
+        return nestedmappinglist ?
+            Object.keys(nestedmappinglist).filter(
+                checkOnReplyMapped,
+                nestedmappinglist
+            ) : [];
+    }
+
+    function isReplyMappingOn() {
+        let dropdownMapping = getDropDownMappingList(iparams.mappinglist);
+        let nestedDdMapping = getNestedDropDownList(iparams.nestedmappinglist);
+        return (
+            (iparams.onreply === 1 && iparams.replyfield !== "") ||
+            (dropdownMapping && dropdownMapping.length > 0) ||
+            (nestedDdMapping && nestedDdMapping.length > 0)
+        );
+    }
+
+    function initOnTicketDetailPage() {
+        client.events.on("ticket.propertiesUpdated", initCheckMandatory, {
+            intercept: true,
+        });
+        if (isReplyMappingOn()) {
+            client.events.on("ticket.sendReply", replyEvent, { intercept: true });
+        }
+        if (iparams.onclose === 1) {
+            client.events.on("ticket.closeTicketClick", initCheckMandatory, {
+                intercept: true,
+            });
+        }
+        client.events.on("ticket.forward", setTicketID);
+    }
+
+    function bindEvent() {
+        if (pageType === "new_ticket" && iparams.newticketpage === 1) {
+            client.events.on("ticket.saveTicket", initCheckMandatory, {
+                intercept: true,
+            });
+        } else if (pageType === "email_ticket" && iparams.newemailpage === 1) {
+            client.events.on("ticket.sendEmail", initCheckMandatory, {
+                intercept: true,
+            });
+        } else if (iparams.ticketpage === 1) {
+            initOnTicketDetailPage();
+        }
+    }
+
+    function onAppActivated() {
+        client.iparams.get().then(function(ipdata) {
+            iparams = ipdata;
+            fieldLableMaping = getFieldLableMap(iparams);
+            setTicketID();
+            bindEvent();
+        }, onShowError);
+    }
+    client.events.on("app.activated", onAppActivated);
+}
+$(document).ready(function() {
+    app.initialized().then(appInitialize);
+});

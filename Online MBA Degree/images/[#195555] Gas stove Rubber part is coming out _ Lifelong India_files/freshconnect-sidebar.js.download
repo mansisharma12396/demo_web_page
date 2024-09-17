@@ -1,0 +1,53 @@
+(function (factory) {
+  typeof define === 'function' && define.amd ? define(factory) :
+  factory();
+}((function () { 'use strict';
+
+  // loads polyfill, once success appends freshconnect-sidebar-core.js to DOM
+
+  // since freshconnect-sidebar is a web component, IE and Edge doesn't support CustomElements yet.
+  // so this file will load polyfill and then load freshconnect-sidebar-core.js
+
+  (function(window) {
+    var POLYFILL_CDN_URL = ['https://unpkg.com/@webcomponents/webcomponentsjs@2.4.3/webcomponents-loader.js',
+      'https://unpkg.com/@webcomponents/webcomponentsjs@2.4.3/custom-elements-es5-adapter.js',
+      'https://polyfill.io/v3/polyfill.js?features=es5,es6,fetch,CustomEvent,Element.prototype.remove,Element.prototype.classList,Element.prototype.append,Element.prototype.closest,Element.prototype.matches,smoothscroll&flags=gated&callback=polyfillLoadCompleteCallbackFreshconnect'
+    ];
+
+    //`CDN_URL_PLACEHOLDER` will be replaced by build-omnibar-files-with-env.js
+    // Because omnibar file names will be dynamic for diff build types
+    // var CDN_URL = '{{CDN_URL_PLACEHOLDER}}';
+
+    var index = 0;
+    var scriptInjectLength = POLYFILL_CDN_URL.length;
+    createScriptTagAndInsert(index);
+
+    function createScriptTagAndInsert(index) {
+      if(index >= scriptInjectLength) {
+        return;
+      }
+      var src = POLYFILL_CDN_URL[index];
+      console.log("** Create Script Tag **", src);
+      var scriptElem = document.createElement('script');
+      scriptElem.src = src;
+      scriptElem.onload = createScriptTagAndInsert(index+1);
+      document.body.appendChild(scriptElem);
+    }
+
+    function loadSidebarCore() {
+      // var CDN_URL = 'http://localhost:5000'; // For development environment
+      // var CDN_URL = 'https://assets1.fdcollab.io/freshconnect-sidebar'; // For prestaging
+      // var CDN_URL = 'https://assets1.fconstage.io/freshconnect-sidebar'; // For staging
+      var CDN_URL = 'https://assets1.freshconnect.io/freshconnect-sidebar'; // For production
+      var sideBarFilePath = CDN_URL + "/freshconnect-sidebar-core.js";
+      var scriptElem = document.createElement('script');
+      scriptElem.src = sideBarFilePath;
+      document.body.appendChild(scriptElem);
+    }
+
+    window.polyfillLoadCompleteCallbackFreshconnect = function() {
+      loadSidebarCore();
+    };
+  })(window);
+
+})));

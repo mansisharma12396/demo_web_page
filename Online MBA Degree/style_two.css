@@ -1,0 +1,128 @@
+.img-thumbnail_3{
+width: 20%;
+}
+
+.section{
+background-color: #afa2b5;
+}
+
+
+.back-image{
+    background-image: url(./images/img.jfif);
+    width: 35%;
+    height: 275px;
+    border-bottom-left-radius: 15px;
+    border-top-left-radius: 15px;
+}
+
+.radius{
+    padding-right: 29px;
+    padding-left: 81px;
+}
+
+.section_two{
+    background-color: #afa2b5;
+}
+
+.section-program{    
+    margin-top: -77px;
+    padding-bottom: 70px;
+}
+
+.card-section{
+    margin-top: 45px;
+}
+
+.bg-1{
+    background-color: #00c48c;
+    margin-right: 201px;
+    border-radius: 42px;
+    height: 60px;
+    width: 17%;
+    position: absolute;
+    top: 200px;
+    left: 25px;
+}
+.svg_img_1{
+    margin: 9px;
+    padding: 10px;
+}
+
+.bg-2{
+    background-color: #f9690e;
+    margin-right: 201px;
+    border-radius: 42px;
+    height: 60px;
+    width: 17%;
+    position: absolute;
+    top: 200px;
+    left: 25px;
+}
+.svg_img_2{
+    margin: 10px;
+    padding: 10px;
+}
+
+.bg-3{
+    background-color: #a186ff;
+    margin-right: 201px;
+    border-radius: 42px;
+    height: 60px;
+    width: 17%;
+    position: absolute;
+    top: 200px;
+    left: 25px;
+}
+.svg_img_3{
+    margin: 7px;
+    padding: 13px;
+}
+
+.bg-4{
+    background-color: #ffcf5c;
+    margin-right: 201px;
+    border-radius: 42px;
+    height: 60px;
+    width: 17%;
+    position: absolute;
+    top: 200px;
+    left: 25px;
+}
+.svg_img_4{
+    margin: 9px;
+    padding: 10px;
+}
+
+.bg-5{
+    background-color: #c5daf8;
+    margin-right: 201px;
+    border-radius: 42px;
+    height: 60px;
+    width: 17%;
+    position: absolute;
+    top: 200px;
+    left: 25px;
+}
+.svg_img_5{
+    margin: 9px;
+    padding: 10px;
+}
+
+.border_one{
+    border-radius: 5px;
+    box-shadow: 2px 4px 13px -2px #888888;
+    box-shadow: 81px;
+}
+.border_two{
+    border-radius: 5px;
+    box-shadow: 2px 4px 13px -2px #888888;
+    box-shadow: 81px;
+}
+.border_three{
+    border-radius: 5px;
+    box-shadow: 2px 4px 13px -2px #888888;
+}
+.border_four{
+    border-radius: 5px;
+    box-shadow: 2px 4px 13px -2px #888888;
+}

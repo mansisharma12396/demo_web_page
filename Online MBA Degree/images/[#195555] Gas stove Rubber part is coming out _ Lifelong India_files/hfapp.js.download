@@ -1,0 +1,414 @@
+var datapis = {};
+
+$(document).ready(function() {
+    app.initialized().then(function(_client) {
+        datapis["client"] = _client;
+        datapis["currentpage"] = $("#currentPage").val();
+        datapis["client"].events.on("app.activated", onAppActivated);
+    }).catch(function(err) {
+        console.info("Failed to load the hide fields app");
+        console.error(err);
+    });
+});
+
+function onAppActivated() {
+    datapis["client"].events.on("ticket.customFieldChanged", customFieldChange);
+    datapis["client"].events.on("ticket.statusChanged", changeTicketFieldValue);
+    datapis["client"].events.on("ticket.priorityChanged", changeTicketFieldValue);
+    datapis["client"].events.on("ticket.groupChanged", changeTicketFieldValue);
+    datapis["client"].events.on("ticket.agentChanged", changeTicketFieldValue);
+    datapis["client"].events.on("ticket.typeChanged", changeTicketFieldValue);
+    datapis["client"].events.on("ticket.nextTicketClick", TicketChange);
+    datapis["client"].events.on("ticket.previousTicketClick", TicketChange);
+    datapis["client"].events.on("ticket.propertiesUpdated", productOnlyChangeEvent);
+    getiparams()
+}
+
+//pull datapis["iparam"] values
+function getiparams() {
+
+    datapis["client"].iparams.get()
+        .then(function(data) {
+            datapis["iparam"] = data;
+            //get current page details
+            TicketChange();
+        }, function(err) {
+            console.error(err);
+            datapis["client"].interface.trigger("showNotify", { type: "success", message: "Failed to get app configurations" });
+        });
+}
+
+function TicketChange() {
+
+    if (isAllowAppInThisPage()) {
+        if (datapis["iparam"].hf_getconfigdata.hasOwnProperty("roles")) {
+            getLoggedInUserDetails();
+        }
+        if (datapis["currentpage"] === "newticket" || datapis["currentpage"] === "newemail") {
+            datapis["ticketdetails"] = {
+                ticket: {
+                    custom_fields: {
+
+                    }
+                }
+            }
+
+        } else {
+            getTicketDetails();
+        }
+    }
+}
+
+function customFieldChange(event) {
+    if (isAllowAppInThisPage()) {
+        hideFieldOnRoles(datapis["loggedInAgent"], "elements");
+        hideFieldOnRoles(datapis["loggedInAgent"], "fields");
+        var event_data = event.helper.getData();
+        var cfField = Object.keys(event_data)[0];
+        datapis["ticketdetails"].ticket.custom_fields[cfField] = event_data[cfField].new;
+        if (datapis["currentpage"] === "ticketdetail") {
+            getTicketDetails();
+        } else {
+            getIparamFields();
+        }
+    }
+}
+
+function changeTicketFieldValue(event) {
+    if (isAllowAppInThisPage()) {
+        hideFieldOnRoles(datapis["loggedInAgent"], "elements");
+        hideFieldOnRoles(datapis["loggedInAgent"], "fields");
+        var event_data = event.helper.getData();
+        var changedType = event.type.replace("ticket.", "").replace("Changed", "");
+        if (event.type === "ticket.groupChanged") {
+            changedType = "group_id";
+        }
+        datapis["ticketdetails"].ticket[changedType] = event_data.new;
+        getIparamFields();
+    }
+}
+
+function productOnlyChangeEvent(event) {
+    if (isAllowAppInThisPage()) {
+        var event_data = event.helper.getData();
+        if (event_data.changedAttributes.productId || event_data.changedAttributes.status) {
+            event_data.changedAttributes.productId ?
+                datapis["ticketdetails"].ticket["product_id"] = event_data.changedAttributes.productId[1] : "";
+            event_data.changedAttributes.status ?
+                datapis["ticketdetails"].ticket["status"] = event_data.changedAttributes.status[1] : "";
+            getIparamFields();
+        }
+    }
+}
+
+function hideFieldOnRoles(data, elem) {
+    var hideKeyword = undefined;
+    if (datapis["iparam"].hf_getconfigdata["roles"][elem] && Object.keys(datapis["iparam"].hf_getconfigdata["roles"][elem]).length) {
+        var parentChildsLength = Object.keys(datapis["iparam"].hf_getconfigdata["roles"][elem]).length / 2;
+        for (var c = 0; c < parentChildsLength; c++) {
+            var configRoles = datapis["iparam"].hf_getconfigdata["roles"][elem]["parent_" + c];
+            var userRoles = data.loggedInUser.role_ids;
+            userRoles.length > 0 ? userRoles = userRoles.join(",").split(",") : "";
+            if (configRoles.some(a => userRoles.includes(a))) {
+                hideKeyword = datapis["iparam"].hf_getconfigdata["roles"][elem]["child_" + c];
+                hideKeyword ? HideShowFields(hideKeyword) : "";
+            }
+        }
+    }
+}
+
+function getLoggedInUserDetails() {
+    if (isAllowAppInThisPage()) {
+        datapis["client"].data.get("loggedInUser").then(function(data) {
+            datapis["loggedInAgent"] = data;
+            hideFieldOnRoles(data, "elements");
+            hideFieldOnRoles(data, "fields");
+            if (datapis["currentpage"] === "newticket") {
+                let agentid = data.loggedInUser.id;
+                datapis["ticketdetails"]["ticket"]["agent"] = agentid;
+                getIparamFields();
+            }
+        }, function(er) {
+            console.error(er);
+            datapis["client"].interface.trigger("showNotify", { type: "success", message: "Failed to get agent details" })
+        });
+    }
+}
+//get ticket details using data api
+function getTicketDetails() {
+    datapis["client"].data.get("ticket")
+        .then(function(tdata) {
+            datapis["ticketdetails"] = tdata;
+            getIparamFields();
+        }, function(err) {
+            console.error(err);
+            datapis["client"].interface.trigger("showNotify", { type: "success", message: "Failed to get ticket details" })
+        });
+}
+
+function showFields(val, type, keySet) {
+    if (keySet.length !== 0 && typeof(keySet[0]) === "object") {
+        keySet = flatMap(keySet, function(x) { return x });
+    }
+    $.each(val, function(a, fieldName) {
+        if (type === "AND" && keySet.length === 0 || (keySet.length !== 0 && !keySet.includes(fieldName))) {
+            datapis["client"].interface.trigger("show", { id: fieldName })
+        }
+        if (type !== "AND") {
+            datapis["client"].interface.trigger("show", { id: fieldName })
+        }
+
+        $.each(datapis["iparam"].hf_getconfigdata.roles, function(i, v) {
+            $.each(v, function(index, value) {
+                if (value.includes(fieldName)) {
+                    datapis["client"].interface.trigger("hide", { id: fieldName })
+                }
+            })
+
+        })
+
+    });
+}
+
+function flatMap(arr, cb) {
+    return arr.reduce(function(result, next) {
+        return result.concat(next.map(cb));
+    }, []);
+}
+
+//using iparams values process the fields configured in the settings page
+function getIparamFields() {
+    var irules = datapis["iparam"].rules;
+    var currectTicketValue = "";
+    //hide based on nested field values
+    $.each(irules, function(i, v) {
+        if (i.includes("nf_")) {
+            i = i.replace("nf_", "");
+            for (var county = 0; county < Object.keys(v).length; county++) {
+                nestedFields(i, v[Object.keys(v)[county]], currectTicketValue);
+            }
+        } else {
+            nonNestedfiels(i, v, currectTicketValue, irules)
+        }
+    });
+    $.each(datapis["iparam"].hf_getconfigdata, function(i, v) {
+        if (i.includes("nf_")) {
+
+        } else {
+            nonNestedfiels(i, v, currectTicketValue);
+        }
+    })
+
+
+    andConditionCheck();
+
+}
+
+function hideAllFields(currectTicketValue, i) {
+    var hidellaFields = "";
+    if (!(currectTicketValue) && datapis["iparam"].hf_generalsettings.hideallvalues && datapis["currentpage"] !== "newticket") {
+        hidellaFields = datapis["iparam"].hf_hidefields[i];
+    }
+    if (hidellaFields != undefined) {
+        $.each(hidellaFields, function(c, d) {
+            HideFields(d);
+        });
+    }
+}
+
+function nestedFields(i, v, currectTicketValue) {
+    var level1 = [];
+    currectTicketValue = datapis["ticketdetails"].ticket.custom_fields[i];
+
+    $.each(v, function(ind, val) {
+        if (ind != "hide") {
+            val == null ? val = "" : "";
+            if (val.includes(datapis["ticketdetails"].ticket.custom_fields[ind]) ||
+                val === "" || val == "0" || val.length === 0) { //value may be both interger or string so used ==
+                level1.push[true];
+            } else {
+                level1.push(false);
+            }
+        }
+    });
+    if (level1.every(a => a == true)) {
+        $.each(v["hide"], function(c, d) {
+            HideFields(d);
+        });
+    } else {
+        showFields(v["hide"], "ANY", []);
+    }
+    hideAllFields(currectTicketValue, i)
+
+}
+
+function getCurrenTicketValue(i, currectTicketValue) { // i = field
+    switch (i) {
+        case "ticket_type":
+            currectTicketValue = datapis["ticketdetails"].ticket.type;
+            break;
+        case "group":
+            currectTicketValue = datapis["ticketdetails"].ticket.group_id;
+            break;
+        case "product":
+            currectTicketValue = datapis["ticketdetails"].ticket.product_id;
+            break;
+        case "agent":
+            if (!datapis["ticketdetails"]["ticket"]["agent"]) {
+                currectTicketValue = datapis["ticketdetails"].ticket.responder_id;
+            } else {
+                currectTicketValue = datapis["ticketdetails"]["ticket"]["agent"];
+            }
+            break;
+        default:
+            if (datapis["ticketdetails"].ticket.hasOwnProperty(i)) {
+                currectTicketValue = datapis["ticketdetails"].ticket[i];
+            } else {
+                currectTicketValue = datapis["ticketdetails"].ticket.custom_fields[i];
+            }
+            break;
+    }
+    return currectTicketValue;
+}
+
+function nonNestedfiels(i, v, currectTicketValue) {
+
+    var optionsKeyword = i;
+    currectTicketValue = getCurrenTicketValue(i, currectTicketValue);
+    var optionsKeywordFlag = 1;
+    currectTicketValue ? currectTicketValue = currectTicketValue.toString() : "";
+    if (i !== "roles") {
+        var parentChildsLength = Object.keys(datapis["iparam"].hf_getconfigdata[i]).length / 2;
+        for (var c = 0; c < parentChildsLength; c++) {
+            if (datapis["iparam"].hf_getconfigdata[i]["parent_" + c].includes(currectTicketValue)) {
+                optionsKeyword = datapis["iparam"].hf_getconfigdata[i]["child_" + c];
+                optionsKeywordFlag = 0;
+            } else {
+                optionsKeywordFlag ? optionsKeyword = undefined : "";
+                showFields(datapis["iparam"].hf_getconfigdata[i]["child_" + c], "ANY", [])
+            }
+        }
+        HideShowFields(optionsKeyword);
+    }
+    hideAllFields(currectTicketValue, i)
+}
+
+function HideShowFields(optionsKeyword) {
+
+    if (optionsKeyword) {
+        $.each(optionsKeyword, function(c, d) {
+            HideFields(d);
+        });
+    }
+}
+
+function isAllowAppInThisPage() {
+    if (datapis["currentpage"] === "newemail" && datapis["iparam"].hf_generalsettings.newemail) {
+        return true
+    }
+    if (datapis["currentpage"] === "newticket" && datapis["iparam"].hf_generalsettings.newticket) {
+        return true;
+    }
+    if (datapis["currentpage"] === "ticketdetail" && datapis["iparam"].hf_generalsettings.ticketdetail) {
+        return true;
+    }
+    return false;
+}
+
+function HideFields(keyword) {
+    if (datapis["currentpage"] === "ticketdetail") {
+        datapis["client"].interface.trigger("hide", { id: keyword });
+    } else {
+        ignoreUnwantedField(keyword);
+    }
+}
+
+function ignoreUnwantedField(keyword) {
+    let validate = true;
+    var keywordsArray = [
+        "ticketSpam", "ticketDelete", "tag", "ticketEdit",
+        "note", "noteEdit", "reply", "forward", "ticketDueBy"
+    ];
+    if (keywordsArray.includes(keyword)) {
+        validate = false;
+    }
+    if (datapis["currentpage"] === "newemail" && (keyword === "internal_group" || keyword === "internal_agent")) {
+        validate = false;
+    }
+    if (validate) {
+        datapis["client"].interface.trigger("hide", { id: keyword });
+    }
+}
+
+
+function andConditionCheck() {
+    var keySet = [];
+    var andRules = datapis.iparam.andCondition;
+    $.each(andRules, function(i, v) {
+        if (v.typeAND === "singleAND") {
+            handleSingleField(v, keySet);
+        } else {
+            handleNestedField(v, keySet);
+        }
+    })
+}
+
+function handleSingleField(rule, keySet) {
+    let andValidation = [];
+    $.each(Object.keys(rule), function(i, v) {
+        if (v !== "typeAND" && v !== "andHideFields") {
+            var fieldValue = getCurrenTicketValue(v);
+            fieldValue ? andValidation.push(rule[v].includes(fieldValue.toString())) : andValidation.push(rule[v].includes(fieldValue));
+        }
+    })
+
+    if (andValidation.length && andValidation.every(a => a)) {
+        keySet.push(rule.andHideFields[0])
+        loopFieldsToHide(rule.andHideFields);
+    } else {
+        showFields(rule.andHideFields[0], "AND", keySet);
+    }
+
+
+}
+
+function loopFieldsToHide(fields) {
+    fields = fields[0];
+    for (var i = 0; i < fields.length; i++) {
+        HideFields(fields[i]);
+    }
+}
+
+function handleNestedField(rule, keySet) {
+    rule = rule;
+    $.each(Object.keys(rule), function(i, v) {
+        if (v !== "typeAND" && v !== "andHideFields") {
+            var selectedOptions = rule[v];
+            loopSelectedOptions(selectedOptions, rule, keySet)
+        }
+    })
+}
+
+
+function loopSelectedOptions(selectedOptions, rule, keySet) {
+    var firstLevelName, firstLevelValue, secondLevelName, secondLevelValue, thirdLevelName, thirdLevelValue;
+    var andValidation = [];
+    for (var i = 0; i < selectedOptions.length; i++) {
+        firstLevelName = Object.keys(selectedOptions[i])[0];
+        firstLevelValue = Object.values(selectedOptions[i])[0];
+        secondLevelName = Object.keys(selectedOptions[i])[1];
+        secondLevelValue = Object.values(selectedOptions[i])[1];
+        thirdLevelName = Object.keys(selectedOptions[i])[2];
+        thirdLevelValue = Object.values(selectedOptions[i])[2];
+        andValidation.push(datapis.ticketdetails.ticket.custom_fields[firstLevelName] === firstLevelValue &&
+            datapis.ticketdetails.ticket.custom_fields[secondLevelName] === secondLevelValue &&
+            datapis.ticketdetails.ticket.custom_fields[thirdLevelName] === thirdLevelValue)
+    }
+
+    if (andValidation.length && andValidation.every(a => a)) {
+        keySet.push(rule.andHideFields[0]);
+        loopFieldsToHide(rule.andHideFields);
+    } else {
+        showFields(rule.andHideFields[0], "AND", keySet);
+    }
+}

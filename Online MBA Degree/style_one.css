@@ -1,0 +1,33 @@
+body{
+
+}
+
+.header{
+    background: linear-gradient(to left, #5580b74d, #538cdb4d);
+    background-size: 60% ;
+    background-repeat: repeat-y;
+}
+
+.img-thumbnail_1{
+    width: 100%;
+}
+
+.nav-text{
+    font-size: 18px;
+    /* padding-right: 147px; */
+}
+
+.nav-text-left{
+   
+}
+
+.img-thumbnail_2{
+    width: 100%;
+    padding-left: 22px;
+    padding-top: 30px;
+}
+.paragraph {
+    border-left: 2px solid rgb(52, 11, 219);
+    height: 90px;
+    left: 50%;   
+  }

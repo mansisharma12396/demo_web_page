@@ -1,0 +1,121 @@
+$(document).ready(function () {
+	app.initialized()
+		.then(function (_client) {
+			var client = _client;
+			var url = "https://";
+			var serverip = '';
+			var serverAdd = '';
+			var clickEmail = '';
+			client.iparams.get("server_ip").then(
+				function (data) {
+					for (var a in data) {
+						serverip = data[a];
+						url = serverAdd = url + serverip;
+					}
+				},
+				function (error) {
+					console.log(error);
+					client.interface.trigger("showNotify", {type: "danger", message: "C-Zentrix App not able access C-Zentrix Server IP. Please check your configuration."});
+				}
+			);
+			client.data.get('domainName')
+				.then(function (data) {
+					var domainName = '';
+					for (var a in data) {
+						domainName = data[a];
+					}
+					url = url + "/App/cti_handler.php?domain_name=" + domainName;
+				})
+				.catch(function (e) {
+					console.log('Exception - ', e);
+					client.interface.trigger("showNotify", {type: "danger", message: "C-Zentrix App got following exception error while accessing your CRM account sub domain name : "+e+" \nPlease contact your administrator."});
+				});
+
+			client.data.get('loggedInUser')
+				.then(function (data) {
+					var userEmail = '';
+					for (var a in data) {
+						for (var b in data[a]) {
+							if (b == "preferences" || b == "contact") {
+								for (var c in data[a][b]) {
+									if (c == "email") {
+										userEmail = clickEmail = data[a][b][c];
+									}
+								}
+							}
+						}
+					}
+					url = url + "&email=" + userEmail;
+					document.getElementById("myIframe").src = url;
+				})
+				.catch(function (e) {
+					console.log('Exception - ', e);
+					client.interface.trigger("showNotify", {type: "danger", message: "C-Zentrix App got following exception error while accessing your CRM account user email id : "+e+" \nPlease contact your administrator."});
+				});
+
+			function listener(event) {
+				var spiltData = event.data.split('|');
+				if (spiltData[0] == 'Trigger' && spiltData[1] != "undefined" && spiltData[1] != '') {
+					client.interface.trigger('click', {
+						id: spiltData[2],
+						value: spiltData[1]
+					});
+					client.interface.trigger('show', {
+						id: 'softphone'
+					});
+				}
+				else if (spiltData[0] == 'Show') {
+					client.interface.trigger('show', {
+						id: 'softphone'
+					});
+				}
+			}
+			if (window.addEventListener) {
+				addEventListener("message", listener, false);
+			}
+			else {
+				attachEvent("onmessage", listener);
+			}
+
+			client.events.on("cti.triggerDialer", callback);
+
+			function callback(event){
+			let data = event.helper.getData();
+			console.log(data.number); // will have number User has clicked on the page
+			console.log("=======Click to call Success========="+serverAdd+"====ServerAdd=====");
+			var send_url = serverAdd + "/apps/appsHandler.php?transaction_id=CTI_DIAL&phone_num="+data.number+"&agent_id="+clickEmail+"&resFormat=3";
+			console.log(send_url);
+			plain_req(send_url,record_data);
+			}
+
+			function record_data(arr){
+				console.log(arr);
+				//console.log("Click to call response");
+				var obj = JSON.parse(arr);
+
+				var response_state = (obj.response.status == "SUCCESS")? "success" : "danger"; 
+				var showMsg = obj.response.reason;
+
+				client.interface.trigger("showNotify", {type: response_state ,message: showMsg});
+
+			}
+
+			function plain_req(urlreq, callbackreq) {
+				var xmlhttp;
+				if (window.XMLHttpRequest) {
+					xmlhttp = new XMLHttpRequest();
+				} else {
+					xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+				}
+				xmlhttp.onreadystatechange = function () {
+					if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+						callbackreq(xmlhttp.responseText);
+						//console.log(xmlhttp.responseText);
+					}
+				};
+				xmlhttp.open("GET", urlreq);
+				xmlhttp.send();
+			}
+
+		});
+});

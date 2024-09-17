@@ -1,0 +1,50 @@
+.round_image_one{
+    border-radius: 100px;
+    width: 100%;   
+}
+
+.border-one{
+    border-radius: 8px;
+    border-radius: 5px;
+    box-shadow: 2px 4px 13px -2px #888888;
+    box-shadow: 81px;
+    padding: 37px;
+    margin: 10px;
+}
+
+.round_image_two{
+    border-radius: 100px;
+    width: 100%;   
+}
+.border-two{
+    border-radius: 8px;
+    border-radius: 5px;
+    box-shadow: 2px 4px 13px -2px #888888;
+    box-shadow: 81px;
+    padding: 37px;
+    margin: 10px;
+}
+
+.round_image_three{
+    border-radius: 100px;
+    width: 100%;   
+}
+.border-three{
+    border-radius: 8px;
+    border-radius: 5px;
+    box-shadow: 2px 4px 13px -2px #888888;
+    box-shadow: 81px;
+    padding: 37px;
+    margin: 10px;
+}
+
+.footer_image{
+    background-image: url(./images/footer.jfif);
+    width: 100%;
+    height: 380px;
+}
+
+.footer_container{
+    box-shadow:70px 60px 26px 67px #888888;
+    box-shadow: 81px;
+}

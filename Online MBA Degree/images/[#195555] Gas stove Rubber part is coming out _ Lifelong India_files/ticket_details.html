@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!-- saved from url=(0105)https://d3h0owdjgzys62.cloudfront.net/app-assets/a0e4b74564d62eb3dc08/app/ticket_details.html?appId=41608 -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><link rel="stylesheet" type="text/css" href="./freshdesk.css">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link rel="stylesheet" type="text/css" href="./freshdesk.css" disabled="">
+  <script src="./fresh_client.js.download"></script>
+</head>
+
+<body style="display: block;">
+  <div>
+    <button class="btn btn-primary" id="add_note_btn" onclick="add_call_details()">Add Call Details</button>
+  </div>
+
+  <!-- built files will be auto injected -->
+
+  <script src="./jquery.min.js(1).download" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    document.onreadystatechange = function () {
+
+      if (document.readyState === 'interactive') renderApp();
+
+      function renderApp() {
+        var onInit = app.initialized();
+
+        onInit.then(getClient).catch(handleErr);
+
+       
+
+        function getClient(_client) {
+          window.client = _client;
+
+          client = window.client;
+
+          client.events.on('app.activated', function () {
+              
+          });
+      }
+    }
+  }
+
+  function handleErr(err) {
+        syrow_log(`Error occured. Details:`, err);
+    }
+
+    function showNotify(type, message) {
+        return client.interface.trigger("showNotify", {
+            type: type,
+            message: message
+        })
+    }
+
+    function add_call_details(){
+      $('#add_note_btn').prop('disabled', true);
+      $('#add_note_btn').html('Adding...');
+      client.db.get(localStorage.getItem('syrow_advisor')+"_store").then((ds_data) => {
+          
+
+            let ticket_details = client.data.get("ticket").then((data) => {
+              let ticket_id = data.ticket.id;
+              
+              if(ds_data.syrow_call_id !== null){
+              
+                let current_process_name = ds_data.current_process_name;
+
+                let syrow_client_api_key = ds_data.process[current_process_name].syrow_client_api_key;
+                
+                var body = 'Notes Created by Syrow. <br><br> <audio controls><source src="https://api.syrow.com/callinfo/audio?crm=1&api_key=' + syrow_client_api_key + '&type=file&call_id=' + ds_data.syrow_call_id + '" type="audio/mp3" preload="none"></audio> ';
+
+                client.iparams.get().then((ip_data) => {
+                  let api_key = btoa(ip_data.freshdesk_api_key+":x");
+
+
+                  const ticket_params = {
+                    body: body
+                  }
+                  client.data.get("domainName").then(
+                      function (domain) {
+                          client.request.post('https://' + domain.domainName + "/api/v2/tickets/" + ticket_id+"/notes",
+                              {
+                                  headers: {
+                                      Authorization: 'Basic '+api_key
+                                  },
+                                  json: ticket_params,
+                              }).then((ticket_data) => {
+                                  
+                                $('#add_note_btn').prop('disabled', false);
+                                $('#add_note_btn').html('Add Call Details');
+
+                                  console.log("Here is the Data", ticket_data);
+                                  showNotify('success', 'Successfully Updated Ticket');
+                                  
+                                  
+                                  client.interface.trigger('click', { id: 'contact', value: ticket_data.response.user_id });
+                                  client.interface.trigger('click', { id: 'ticket', value: ticket_id });
+                                  
+                              }, error => {
+                                $('#add_note_btn').prop('disabled', false);
+                                $('#add_note_btn').html('Add Call Details');
+                                console.log("Here is the Error", error);
+                                  showNotify('danger', 'API limit Reached. Retry after few seconds. Notify TL if this issue persists');
+                              })
+                      },
+                      function (error) {
+                        $('#add_note_btn').prop('disabled', false);
+                        $('#add_note_btn').html('Add Call Details');
+                        
+                        console.log("Here is the Error", error);
+                          showNotify('danger', 'API limit Reached. Retry after few seconds. Notify TL if this issue persists');
+                      });
+
+
+                  })
+
+                
+              }else{
+                $('#add_note_btn').prop('disabled', false);
+                $('#add_note_btn').html('Add Call Details');
+                
+                showNotify("info", "Syrow App: No Active Call Found.");
+              }
+                
+
+
+
+            });
+                    
+                  
+  
+      });
+
+      
+    }
+
+
+  </script>
+
+
+<script type="text/javascript" src="./omnibar-ist-iframe-stable.js.download"></script></body></html>
